@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { createContext, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { decideCollection, type ConsentChoice, type ConsentMode } from "@/lib/consent";
@@ -94,10 +93,7 @@ function ConsentBanner({ mode, choice, gpc, onChoose, onClose }: { mode: Consent
             {gpc && " Your browser sent a Global Privacy Control signal, so analytics stay off unless you accept."}
           </p>
         )}
-        <p className="consent-meta">
-          {choice ? `Current choice: ${choice === "granted" ? "accepted" : "declined"}. ` : ""}
-          <Link href="/privacy">Read the privacy notice</Link>
-        </p>
+        {choice && <p className="consent-meta">Current choice: {choice === "granted" ? "accepted" : "declined"}.</p>}
       </div>
       <div className="consent-actions">
         <button type="button" className="btn" onClick={() => onChoose("denied")}>Decline</button>

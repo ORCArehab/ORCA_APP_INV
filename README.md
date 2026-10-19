@@ -32,8 +32,8 @@ Always start the app with `npm run dev` or `npm start`, which run `server.mjs`. 
 | **Reported by browser** | page path (sanitized), referrer **origin**, `navigator.languages`, configured time zone, screen size, viewport size, `maxTouchPoints`, `navigator.webdriver`, explicitly tagged click events |
 | **Inferred / estimated** | browser, OS, device category (from UA); bot/link-preview classification; country/region/city, ISP, org, ASN and VPN/proxy/Tor/hosting indicators from the IP lookup provider (with source and lookup date) |
 
-Unavailable values are stored as `NULL` and shown as *unknown*. The field guide at `/admin/fields` and the
-visitor-facing `/privacy` page are generated from the same definitions (`lib/field-docs.ts`).
+Unavailable values are stored as `NULL` and shown as *unknown*. The field guide at `/admin/fields` is generated
+from `lib/field-docs.ts`.
 
 **Not collected, by design:** canvas/audio/WebGL/font probing, typed text or input values, session replay,
 camera/microphone/geolocation, third-party scripts, cross-site identifiers. Click events record only a
@@ -51,7 +51,7 @@ developer-defined name and label:
 * `opt-out`: anonymous analytics with a notice and no persistent identifier. The returning-visitor cookie is set only after acceptance. Declining or a Global Privacy Control signal (`HONOR_GPC=true`) stops collection.
 * `disabled`: collection off entirely.
 
-Visitors can reopen *Privacy choices* from the footer and can delete their own data from `/privacy`. That deletes visits tied to their visitor cookie and current session, then opts them out.
+The public site is a single "Hello world" page with no visible privacy notice or controls. In `opt-out` mode no banner is shown. `POST /api/privacy/delete` still exists for erasing a visitor's own data if you add a notice later. Many jurisdictions require a privacy notice and an opt-out for this kind of collection; add one if yours does.
 
 ## Client IP and proxies
 

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { cookies } from "next/headers";
 import { AnalyticsProvider } from "@/components/analytics/AnalyticsProvider";
 import { getConfig } from "@/lib/config";
@@ -10,10 +9,6 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   return (
     <AnalyticsProvider mode={config.consentMode} initialChoice={choice} honorGpc={config.honorGpc}>
       <main className="plain-main">{children}</main>
-      {/* Visitors must be able to read the notice and opt out there. */}
-      <footer className="plain-footer">
-        <Link href="/privacy">Privacy</Link>
-      </footer>
     </AnalyticsProvider>
   );
 }

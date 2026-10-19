@@ -186,7 +186,7 @@ input, select { font: inherit; padding: 7px 10px; border-radius: 8px; border: 1p
 .detail-section > p { font-size: .85rem; color: var(--text-2); }
 
 /* Plain public pages */
-.plain-main { min-height: calc(100vh - 48px); padding: 24px 16px; }
+.plain-main { min-height: 100vh; padding: 24px 16px; }
 .plain-main:has(.hello) { display: grid; place-items: center; }
 .hello { font-size: 2rem; font-weight: 600; margin: 0; }
 .plain-main .prose { margin: 0 auto; }

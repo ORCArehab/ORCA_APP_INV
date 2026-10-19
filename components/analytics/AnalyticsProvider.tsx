@@ -46,7 +46,8 @@ export function AnalyticsProvider({ mode, initialChoice, honorGpc, children }: {
     [mode, choice, decision.collect, setChoice],
   );
 
-  const showBanner = mode !== "disabled" && (choice === null || settingsOpen);
+  // opt-in asks up front; opt-out shows no banner (choices are on the privacy page).
+  const showBanner = (mode === "opt-in" && choice === null) || (mode !== "disabled" && settingsOpen);
 
   return (
     <ConsentContext.Provider value={ctx}>

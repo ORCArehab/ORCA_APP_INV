@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { AnalyticsProvider, PrivacyChoicesButton } from "@/components/analytics/AnalyticsProvider";
+import { AnalyticsProvider } from "@/components/analytics/AnalyticsProvider";
 import { getConfig } from "@/lib/config";
 import { CONSENT_COOKIE, parseConsentCookie } from "@/lib/consent";
 
@@ -10,10 +10,9 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   return (
     <AnalyticsProvider mode={config.consentMode} initialChoice={choice} honorGpc={config.honorGpc}>
       <main className="plain-main">{children}</main>
-      {/* The consent banner links here, and visitors must be able to revisit their choice. */}
+      {/* Visitors must be able to read the notice and opt out there. */}
       <footer className="plain-footer">
         <Link href="/privacy">Privacy</Link>
-        <PrivacyChoicesButton />
       </footer>
     </AnalyticsProvider>
   );

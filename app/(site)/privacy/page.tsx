@@ -38,8 +38,9 @@ export default async function PrivacyPage() {
       {config.consentMode === "opt-in" && <p>Analytics are <strong>off until you accept</strong>. If you decline, nothing is recorded.</p>}
       {config.consentMode === "opt-out" && (
         <p>
-          We record anonymous page views without cookies unless you decline or your browser sends a Global Privacy Control signal. A
-          returning-visitor cookie is set only if you accept.
+          Analytics are <strong>on by default</strong>: we record every visit as described below without setting a tracking cookie. You
+          can opt out at any time, and we treat a Global Privacy Control signal from your browser as an opt-out. A returning-visitor
+          cookie is set only if you explicitly accept it.
         </p>
       )}
       {config.consentMode === "disabled" && <p>Analytics are currently <strong>disabled</strong> on this site. Nothing is recorded.</p>}

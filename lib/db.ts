@@ -1,3 +1,4 @@
+import { attachDatabasePool } from "@vercel/functions";
 import pg from "pg";
 import { getConfig } from "./config";
 
@@ -63,7 +64,9 @@ export function getDb(): Db {
   const url = getConfig().databaseUrl;
   if (!url) throw new Error("DATABASE_URL is not set");
   // TLS is controlled through the connection string (e.g. ?sslmode=require).
-  globalForDb.__vaPool = new pg.Pool({ connectionString: url, max: 5 });
+  globalForDb.__vaPool = new pg.Pool({ connectionString: url, max: 5, idleTimeoutMillis: 10_000 });
+  // On Vercel Fluid Compute, release idle clients before an instance is suspended.
+  attachDatabasePool(globalForDb.__vaPool);
   globalForDb.__vaDb = wrapPg(globalForDb.__vaPool);
   return globalForDb.__vaDb;
 }

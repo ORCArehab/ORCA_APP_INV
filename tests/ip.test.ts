@@ -113,3 +113,12 @@ describe("masking and truncation", () => {
     expect(isNonPublicIp("8.8.8.8")).toBe(false);
   });
 });
+
+describe("IP_SOURCE default", () => {
+  it("uses Vercel headers on Vercel and the socket elsewhere", async () => {
+    const { parseConfig } = await import("@/lib/config");
+    expect(parseConfig({}).ipSource).toBe("socket");
+    expect(parseConfig({ VERCEL: "1" }).ipSource).toBe("vercel");
+    expect(parseConfig({ VERCEL: "1", IP_SOURCE: "trusted-proxies" }).ipSource).toBe("trusted-proxies");
+  });
+});

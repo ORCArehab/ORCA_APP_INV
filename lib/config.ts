@@ -22,7 +22,7 @@ const EnvSchema = z.object({
   VISITOR_ID_MAX_AGE_DAYS: z.coerce.number().int().min(1).max(395).default(180),
 
   // Client IP resolution. See lib/ip.ts.
-  IP_SOURCE: z.enum(["socket", "trusted-proxies", "vercel"]).default("socket"),
+  IP_SOURCE: z.enum(["socket", "trusted-proxies", "vercel"]).optional(),
   TRUSTED_PROXY_CIDRS: list,
   TRUSTED_PROXY_HEADER: z.string().default("x-forwarded-for"),
   IP_STORAGE: z.enum(["full", "truncated"]).default("full"),
@@ -80,7 +80,8 @@ export function parseConfig(env: Record<string, string | undefined>): AppConfig 
     consentMode: e.ANALYTICS_CONSENT_MODE,
     honorGpc: e.HONOR_GPC,
     visitorIdMaxAgeDays: e.VISITOR_ID_MAX_AGE_DAYS,
-    ipSource: e.IP_SOURCE,
+    // Default: Vercel's platform headers when deployed there, otherwise the TCP peer.
+    ipSource: e.IP_SOURCE ?? (env.VERCEL === "1" ? "vercel" : "socket"),
     trustedProxyCidrs: e.TRUSTED_PROXY_CIDRS,
     trustedProxyHeader: e.TRUSTED_PROXY_HEADER.toLowerCase(),
     ipStorage: e.IP_STORAGE,

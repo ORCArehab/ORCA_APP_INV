@@ -5,3 +5,10 @@ node_modules
 *.tsbuildinfo
 next-env.d.ts
 coverage
+.vercel
+.env*
+
+# local agent tooling
+.agents/
+.claude/
+skills-lock.json

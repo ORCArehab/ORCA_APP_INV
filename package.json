@@ -17,9 +17,11 @@
     "hash-password": "tsx scripts/hash-password.ts",
     "seed:demo": "tsx scripts/seed-demo.ts",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "vercel-build": "tsx scripts/migrate.ts && next build"
   },
   "dependencies": {
+    "@vercel/functions": "^3.10.1",
     "bowser": "^2.14.1",
     "next": "^16.4.2",
     "pg": "^8.23.1",

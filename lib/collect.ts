@@ -3,7 +3,7 @@ import { classifyAgent } from "./bots";
 import type { AppConfig } from "./config";
 import { CONSENT_COOKIE, VISITOR_COOKIE, decideCollection, parseConsentCookie, readCookie } from "./consent";
 import type { Db } from "./db";
-import { enrichVisit } from "./enrich";
+import { enrichVisit, vercelGeoLookup } from "./enrich";
 import { MAX_BODY_BYTES, readLimitedBody, validatePayload } from "./events";
 import { resolveClientIp, truncateIp } from "./ip";
 import { consumeRateLimit } from "./ratelimit";
@@ -116,7 +116,8 @@ export async function handleCollect(req: Request, deps: CollectDeps): Promise<Re
 
   const storedIp = ip && config.ipStorage === "truncated" ? truncateIp(ip) : ip;
   const landing = events.find((e) => e.type === "pageview")?.path ?? events[0].path;
-  const initialEnrichment = config.ipLookupProvider === "none" ? "disabled" : ip ? "pending" : "skipped-unknown";
+  const viaVercel = config.ipLookupProvider === "vercel";
+  const initialEnrichment = config.ipLookupProvider === "none" ? "disabled" : ip || viaVercel ? "pending" : "skipped-unknown";
 
   const { visitId, inserted, accepted } = await db.transaction(async (tx) => {
     const visit = await tx.query<{ id: string; inserted: boolean }>(
@@ -161,7 +162,9 @@ export async function handleCollect(req: Request, deps: CollectDeps): Promise<Re
   });
 
   if (inserted && initialEnrichment === "pending") {
-    deps.schedule(() => enrichVisit(db, visitId, ip, config));
+    // Vercel geolocation comes from this request's headers, so read it now.
+    const precomputed = viaVercel ? vercelGeoLookup(req, now) : undefined;
+    deps.schedule(() => enrichVisit(db, visitId, ip, config, undefined, precomputed));
   }
   deps.schedule(() => maybePurge(db, config));
 

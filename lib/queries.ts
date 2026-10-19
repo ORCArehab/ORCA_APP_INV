@@ -7,10 +7,15 @@ export type Filters = {
   country?: string;
   browser?: string;
   device?: string;
+  language?: string;
   bots: "exclude" | "include" | "only";
 };
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+const LANGUAGE = /^[A-Za-z0-9-]{1,35}$/;
+
+/** First browser-reported language, falling back to the first Accept-Language entry. */
+const PRIMARY_LANG = `NULLIF(COALESCE(v.languages->>0, trim(split_part(split_part(v.accept_language, ',', 1), ';', 1))), '')`;
 const DEVICES = new Set(["mobile", "tablet", "desktop", "unknown"]);
 
 /** Parses untrusted search params into a safe filter object. */
@@ -23,6 +28,7 @@ export function parseFilters(sp: Record<string, string | string[] | undefined>):
   const bots = one("bots");
   const country = one("country");
   const device = one("device");
+  const language = one("language");
   return {
     from: one("from") && DATE.test(one("from")!) ? one("from") : undefined,
     to: one("to") && DATE.test(one("to")!) ? one("to") : undefined,
@@ -30,6 +36,7 @@ export function parseFilters(sp: Record<string, string | string[] | undefined>):
     country: country && /^([A-Z]{2}|unknown)$/.test(country) ? country : undefined,
     browser: one("browser"),
     device: device && DEVICES.has(device) ? device : undefined,
+    language: language && (language === "unknown" || LANGUAGE.test(language)) ? language : undefined,
     bots: bots === "include" || bots === "only" ? bots : "exclude",
   };
 }
@@ -48,6 +55,8 @@ function visitWhere(f: Filters, params: unknown[]): string {
   if (f.browser === "unknown") c.push(`v.browser_name IS NULL`);
   else if (f.browser) c.push(`v.browser_name = ${p(f.browser)}`);
   if (f.device) c.push(`v.device_category = ${p(f.device)}`);
+  if (f.language === "unknown") c.push(`${PRIMARY_LANG} IS NULL`);
+  else if (f.language) c.push(`lower(${PRIMARY_LANG}) = lower(${p(f.language)})`);
   if (f.bots === "exclude") c.push(`NOT v.is_bot`);
   if (f.bots === "only") c.push(`v.is_bot`);
   if (f.path) c.push(`EXISTS (SELECT 1 FROM events pe WHERE pe.visit_id = v.id AND pe.type = 'pageview' AND pe.path = ${p(f.path)})`);
@@ -76,6 +85,10 @@ export type VisitRow = {
   referrer_origin: string | null;
   geo_country_code: string | null;
   geo_city: string | null;
+  geo_region: string | null;
+  primary_language: string | null;
+  visitor_visit_number: number | null;
+  visitor_total_visits: number | null;
   enrichment_status: string;
   browser_name: string | null;
   os_name: string | null;
@@ -95,7 +108,12 @@ export async function listVisits(db: Db, f: Filters, opts: { limit?: number; off
   params.push(limit, offset);
   const r = await db.query<VisitRow>(
     `SELECT v.id, v.started_at, v.last_seen_at, v.ip, v.landing_path, v.referrer_origin,
-            v.geo_country_code, v.geo_city, v.enrichment_status, v.browser_name, v.os_name,
+            v.geo_country_code, v.geo_city, v.geo_region, ${PRIMARY_LANG} AS primary_language,
+            CASE WHEN v.visitor_id IS NULL THEN NULL ELSE
+              (SELECT count(*)::int FROM visits r WHERE r.visitor_id = v.visitor_id AND r.started_at <= v.started_at) END AS visitor_visit_number,
+            CASE WHEN v.visitor_id IS NULL THEN NULL ELSE
+              (SELECT count(*)::int FROM visits r WHERE r.visitor_id = v.visitor_id) END AS visitor_total_visits,
+            v.enrichment_status, v.browser_name, v.os_name,
             v.device_category, v.is_bot, v.bot_category, v.visitor_id,
             (SELECT count(*)::int FROM events e WHERE e.visit_id = v.id AND e.type = 'pageview') AS pageviews,
             (SELECT count(*)::int FROM events e WHERE e.visit_id = v.id AND e.type = 'click') AS clicks
@@ -117,6 +135,9 @@ export type Aggregates = {
   botVisits: number;
   topPages: { path: string; views: number }[];
   topCountries: { code: string | null; name: string | null; visits: number }[];
+  topCities: { city: string | null; region: string | null; code: string | null; visits: number }[];
+  topLanguages: { language: string | null; visits: number }[];
+  returningVisits: number;
   browsers: { name: string | null; visits: number }[];
   devices: { category: string; visits: number }[];
   daily: { day: string; pageviews: number; visits: number }[];
@@ -184,6 +205,19 @@ export async function getAggregates(db: Db, f: Filters): Promise<Aggregates> {
   const topCountries = await group<{ code: string | null; name: string | null; visits: number }>(
     "v.geo_country_code AS code, max(v.geo_country) AS name", "v.geo_country_code",
   );
+  const topCities = await group<{ city: string | null; region: string | null; code: string | null; visits: number }>(
+    "v.geo_city AS city, v.geo_region AS region, v.geo_country_code AS code", "v.geo_city, v.geo_region, v.geo_country_code",
+  );
+  const topLanguages = await group<{ language: string | null; visits: number }>(`${PRIMARY_LANG} AS language`, "1");
+  const rp: unknown[] = [];
+  const rw = visitWhere(f, rp);
+  const returningVisits = (
+    await db.query<{ n: number }>(
+      `SELECT count(*)::int AS n FROM visits v ${rw || "WHERE true"} AND v.visitor_id IS NOT NULL
+         AND EXISTS (SELECT 1 FROM visits r WHERE r.visitor_id = v.visitor_id AND r.started_at < v.started_at)`,
+      rp,
+    )
+  ).rows[0].n;
   const browsers = await group<{ name: string | null; visits: number }>("v.browser_name AS name", "v.browser_name");
   const devices = await group<{ category: string; visits: number }>("v.device_category AS category", "v.device_category");
 
@@ -211,6 +245,9 @@ export async function getAggregates(db: Db, f: Filters): Promise<Aggregates> {
     botVisits,
     topPages,
     topCountries,
+    topCities,
+    topLanguages,
+    returningVisits,
     browsers,
     devices,
     daily: fillDays(daily),
@@ -231,14 +268,20 @@ function fillDays(rows: { day: string; pageviews: number; visits: number }[]) {
 }
 
 export async function getFilterOptions(db: Db) {
-  const [countries, browsers, paths] = await Promise.all([
+  const [countries, browsers, paths, languages] = await Promise.all([
     db.query<{ code: string; name: string | null }>(
       `SELECT geo_country_code AS code, max(geo_country) AS name FROM visits WHERE geo_country_code IS NOT NULL GROUP BY 1 ORDER BY 2 NULLS LAST LIMIT 250`,
     ),
     db.query<{ name: string }>(`SELECT DISTINCT browser_name AS name FROM visits WHERE browser_name IS NOT NULL ORDER BY 1 LIMIT 100`),
     db.query<{ path: string }>(`SELECT path FROM events WHERE type = 'pageview' GROUP BY path ORDER BY count(*) DESC LIMIT 100`),
+    db.query<{ language: string }>(`SELECT ${PRIMARY_LANG} AS language FROM visits v GROUP BY 1 HAVING ${PRIMARY_LANG} IS NOT NULL ORDER BY count(*) DESC LIMIT 100`),
   ]);
-  return { countries: countries.rows, browsers: browsers.rows.map((r) => r.name), paths: paths.rows.map((r) => r.path) };
+  return {
+    countries: countries.rows,
+    browsers: browsers.rows.map((r) => r.name),
+    paths: paths.rows.map((r) => r.path),
+    languages: languages.rows.map((r) => r.language),
+  };
 }
 
 export type VisitDetail = Record<string, unknown> & { id: string; visitor_id: string | null };

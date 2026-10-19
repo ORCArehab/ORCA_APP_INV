@@ -158,6 +158,7 @@ export default async function VisitPage({ params }: { params: Promise<{ id: stri
                 Proxy: <Flag value={v.net_proxy} /><br />
                 Tor exit: <Flag value={v.net_tor} /><br />
                 Hosting / data center: <Flag value={v.net_hosting} />
+                {v.enrichment_source === "Vercel IP geolocation" && <span className="hint">Vercel geolocation supplies city, region and country only; it has no ISP or VPN/proxy indicators.</span>}
                 {v.enrichment_source === "ip-api.com" && <span className="hint">ip-api.com reports a single flag covering proxy, VPN, or Tor; it is shown as Proxy.</span>}
               </>
             ),

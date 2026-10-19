@@ -184,3 +184,11 @@ input, select { font: inherit; padding: 7px 10px; border-radius: 8px; border: 1p
 .detail-section > header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
 .detail-section > header h2 { margin: 0; }
 .detail-section > p { font-size: .85rem; color: var(--text-2); }
+
+/* Plain public pages */
+.plain-main { min-height: calc(100vh - 48px); padding: 24px 16px; }
+.plain-main:has(.hello) { display: grid; place-items: center; }
+.hello { font-size: 2rem; font-weight: 600; margin: 0; }
+.plain-main .prose { margin: 0 auto; }
+.plain-footer { height: 48px; display: flex; gap: 16px; justify-content: center; align-items: center; font-size: .8rem; color: var(--text-3); }
+.plain-footer a, .plain-footer .link-button { color: var(--text-3); }

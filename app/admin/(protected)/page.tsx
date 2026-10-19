@@ -76,6 +76,14 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           </select>
         </div>
         <div>
+          <label htmlFor="language">Browser language</label>
+          <select id="language" name="language" defaultValue={filters.language ?? ""}>
+            <option value="">All</option>
+            <option value="unknown">Unknown</option>
+            {options.languages.map((l) => <option key={l} value={l}>{l}</option>)}
+          </select>
+        </div>
+        <div>
           <label htmlFor="bots">Traffic</label>
           <select id="bots" name="bots" defaultValue={filters.bots}>
             <option value="exclude">Likely human only</option>
@@ -94,6 +102,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           <div className="stat-label">Estimated visitors</div>
           <div className="stat-value">{agg.estimatedVisitors}</div>
           <div className="stat-note">{agg.identifiedVisitors} returning-visitor ids + {agg.anonymousVisits} visits without an id. Each browser counts separately; one person on two devices counts twice.</div>
+        </div>
+        <div className="stat">
+          <div className="stat-label">Returning visits</div>
+          <div className="stat-value">{agg.returningVisits}</div>
+          <div className="stat-note">Visits from a browser whose visitor id was seen before. Only possible after the visitor accepted analytics.</div>
         </div>
         <div className="stat">
           <div className="stat-label">Visits ({peopleLabel})</div>
@@ -129,6 +142,21 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           head={["Country", "Visits"]}
           rows={agg.topCountries.map((r) => [r.code ? `${r.name ?? r.code} (${r.code})` : <span key="u" className="unknown">unknown</span>, r.visits])}
         />
+        <SmallTable
+          title="Cities (provider estimate)"
+          note="Approximate, from the IP address. Often the network operator's location rather than the visitor's."
+          head={["City", "Visits"]}
+          rows={agg.topCities.map((r) => [
+            r.city || r.region ? [r.city, r.region, r.code].filter(Boolean).join(", ") : <span key="u" className="unknown">unknown</span>,
+            r.visits,
+          ])}
+        />
+        <SmallTable
+          title="Browser languages"
+          note="First preferred language set in the browser. A setting, not nationality or location."
+          head={["Language", "Visits"]}
+          rows={agg.topLanguages.map((r) => [r.language ? <code key="l">{r.language}</code> : <span key="u" className="unknown">unknown</span>, r.visits])}
+        />
         <SmallTable title="Browsers (from User-Agent)" head={["Browser", "Visits"]} rows={agg.browsers.map((r) => [<Value key="b" v={r.name} />, r.visits])} />
         <SmallTable title="Device category (from User-Agent)" head={["Device", "Visits"]} rows={agg.devices.map((r) => [r.category, r.visits])} />
         <SmallTable title="Click events" head={["Event", "Clicks"]} rows={agg.topClicks.map((r) => [<code key="c">{r.name}</code>, r.clicks])} />
@@ -152,6 +180,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
               <th>Landing page</th>
               <th>IP (masked)</th>
               <th>Location (est.)</th>
+              <th>Language</th>
+              <th>Returning</th>
               <th>Browser / OS</th>
               <th>Device</th>
               <th className="num">Views</th>
@@ -162,7 +192,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={10} className="unknown">No visits match these filters.</td></tr>
+              <tr><td colSpan={12} className="unknown">No visits match these filters.</td></tr>
             )}
             {rows.map((v) => (
               <tr key={v.id}>
@@ -170,8 +200,18 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 <td><code>{v.landing_path}</code>{v.referrer_origin && <div className="small muted">from {v.referrer_origin}</div>}</td>
                 <td className="mono">{maskIp(v.ip)}</td>
                 <td>
-                  {v.geo_country_code ? <>{[v.geo_city, v.geo_country_code].filter(Boolean).join(", ")}</> : <span className="unknown">unknown</span>}
+                  {v.geo_country_code || v.geo_city ? <>{[v.geo_city, v.geo_region, v.geo_country_code].filter(Boolean).join(", ")}</> : <span className="unknown">unknown</span>}
                   {v.enrichment_status === "mock" && <> <span className="badge badge-mock">MOCK</span></>}
+                </td>
+                <td>{v.primary_language ? <code>{v.primary_language}</code> : <span className="unknown">unknown</span>}</td>
+                <td style={{ whiteSpace: "nowrap" }}>
+                  {v.visitor_visit_number == null ? (
+                    <span className="unknown" title="No returning-visitor id (no consent for a cookie)">unknown</span>
+                  ) : v.visitor_visit_number > 1 ? (
+                    <>Yes · visit {v.visitor_visit_number} of {v.visitor_total_visits}</>
+                  ) : (
+                    <>First visit{v.visitor_total_visits! > 1 ? ` of ${v.visitor_total_visits}` : ""}</>
+                  )}
                 </td>
                 <td><Value v={[v.browser_name, v.os_name].filter(Boolean).join(" / ") || null} /></td>
                 <td>{v.device_category}</td>
@@ -179,7 +219,6 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
                 <td className="num">{v.clicks}</td>
                 <td>
                   {v.is_bot && <span className="badge badge-bot">{v.bot_category}</span>}
-                  {v.visitor_id && <span className="badge badge-neutral">has visitor id</span>}
                 </td>
                 <td><Link href={`/admin/visits/${v.id}`}>Details</Link></td>
               </tr>

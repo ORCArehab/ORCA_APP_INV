@@ -102,3 +102,28 @@ describe("user-agent parsing and bot classification", () => {
     expect(classifyAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36 Edg/131.0.0.0").isBot).toBe(false);
   });
 });
+
+describe("Vercel IP geolocation", () => {
+  it("is the default on Vercel and never trusted elsewhere", () => {
+    expect(parseConfig({ VERCEL: "1" }).ipLookupProvider).toBe("vercel");
+    expect(parseConfig({}).ipLookupProvider).toBe("mock");
+    expect(parseConfig({ IP_LOOKUP_PROVIDER: "vercel" }).ipLookupProvider).toBe("mock");
+    expect(parseConfig({ VERCEL: "1", IP_LOOKUP_PROVIDER: "ipinfo" }).ipLookupProvider).toBe("vercel");
+    expect(parseConfig({ VERCEL: "1", IP_LOOKUP_PROVIDER: "ipinfo", IP_LOOKUP_API_KEY: "k" }).ipLookupProvider).toBe("ipinfo");
+  });
+
+  it("maps city, region and country (decoding RFC 3986) and stores no coordinates", async () => {
+    const { vercelGeoLookup } = await import("@/lib/enrich");
+    const req = new Request("https://x.example/api/collect", {
+      headers: { "x-vercel-ip-city": "S%C3%A3o%20Paulo", "x-vercel-ip-country": "BR", "x-vercel-ip-country-region": "SP", "x-vercel-ip-latitude": "-23.5", "x-vercel-ip-longitude": "-46.6" },
+    });
+    const r = vercelGeoLookup(req);
+    expect(r).toMatchObject({ status: "ok", source: "Vercel IP geolocation", city: "São Paulo", region: "SP", countryCode: "BR", country: "Brazil", vpn: null, isp: null });
+    expect(JSON.stringify(r)).not.toContain("-23.5");
+  });
+
+  it("reports missing headers as unknown", async () => {
+    const { vercelGeoLookup } = await import("@/lib/enrich");
+    expect(vercelGeoLookup(new Request("https://x.example/"))).toMatchObject({ status: "error", city: null, countryCode: null });
+  });
+});

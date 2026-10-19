@@ -28,7 +28,7 @@ const EnvSchema = z.object({
   IP_STORAGE: z.enum(["full", "truncated"]).default("full"),
 
   // IP enrichment
-  IP_LOOKUP_PROVIDER: z.enum(["mock", "ipinfo", "ip-api", "none"]).default("mock"),
+  IP_LOOKUP_PROVIDER: z.enum(["vercel", "mock", "ipinfo", "ip-api", "none"]).optional(),
   IP_LOOKUP_API_KEY: z.string().optional(),
   IP_LOOKUP_TIMEOUT_MS: z.coerce.number().int().min(100).max(10000).default(2000),
   IP_LOOKUP_CACHE_HOURS: z.coerce.number().int().min(0).max(720).default(24),
@@ -55,7 +55,7 @@ export type AppConfig = {
   trustedProxyCidrs: string[];
   trustedProxyHeader: string;
   ipStorage: "full" | "truncated";
-  ipLookupProvider: "mock" | "ipinfo" | "ip-api" | "none";
+  ipLookupProvider: "vercel" | "mock" | "ipinfo" | "ip-api" | "none";
   ipLookupApiKey?: string;
   ipLookupTimeoutMs: number;
   ipLookupCacheHours: number;
@@ -72,9 +72,13 @@ export type AppConfig = {
 
 export function parseConfig(env: Record<string, string | undefined>): AppConfig {
   const e = EnvSchema.parse(env);
-  let provider = e.IP_LOOKUP_PROVIDER;
-  // A real provider without its key falls back to clearly-labelled mock data.
-  if ((provider === "ipinfo" || provider === "ip-api") && !e.IP_LOOKUP_API_KEY) provider = "mock";
+  const onVercel = env.VERCEL === "1";
+  // Default: Vercel's built-in IP geolocation when deployed there, otherwise mock data.
+  let provider = e.IP_LOOKUP_PROVIDER ?? (onVercel ? "vercel" : "mock");
+  // A keyed provider without its key falls back (Vercel geolocation, or labelled mock data).
+  if ((provider === "ipinfo" || provider === "ip-api") && !e.IP_LOOKUP_API_KEY) provider = onVercel ? "vercel" : "mock";
+  // Vercel's geo headers are only trustworthy on Vercel; elsewhere a client could send them.
+  if (provider === "vercel" && !onVercel) provider = "mock";
   return {
     databaseUrl: e.DATABASE_URL,
     consentMode: e.ANALYTICS_CONSENT_MODE,

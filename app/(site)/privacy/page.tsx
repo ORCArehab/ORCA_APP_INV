@@ -16,11 +16,12 @@ async function retentionDays() {
   }
 }
 
-const PROVIDER_NAMES: Record<string, string> = {
-  ipinfo: "IPinfo (ipinfo.io)",
-  "ip-api": "ip-api.com",
-  mock: "no external provider (demo/mock data is generated locally)",
-  none: "no provider (IP lookups are disabled)",
+const PROVIDER_TEXT: Record<string, string> = {
+  vercel: "Approximate city, region and country are estimated from your IP address by our hosting provider, Vercel, as part of delivering the request. Your IP address is not sent to any other company.",
+  ipinfo: "To estimate location and network, our server sends your IP address to IPinfo (ipinfo.io). Your browser never contacts that provider.",
+  "ip-api": "To estimate location and network, our server sends your IP address to ip-api.com. Your browser never contacts that provider.",
+  mock: "Your IP address is not sent to any location provider (sample data is used instead).",
+  none: "Your IP address is not used to estimate location.",
 };
 
 export default async function PrivacyPage() {
@@ -80,8 +81,7 @@ export default async function PrivacyPage() {
 
       <h2>Who processes it</h2>
       <p>
-        Data is stored in this site&apos;s own database. To estimate location and network, our server sends your IP address to{" "}
-        {PROVIDER_NAMES[config.ipLookupProvider]}. Your browser never contacts that provider. Only site administrators can view the
+        Data is stored in this site&apos;s own database. {PROVIDER_TEXT[config.ipLookupProvider]} Only site administrators can view the
         dashboard.
       </p>
 

@@ -9,25 +9,11 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
   const choice = parseConsentCookie((await cookies()).get(CONSENT_COOKIE)?.value);
   return (
     <AnalyticsProvider mode={config.consentMode} initialChoice={choice} honorGpc={config.honorGpc}>
-      <header className="site-header">
-        <div className="container">
-          <Link href="/" className="brand">Northwind Trail Co.</Link>
-          <nav className="site-nav" aria-label="Main">
-            <Link href="/pricing">Pricing</Link>
-            <Link href="/docs">Guides</Link>
-            <Link href="/privacy">Privacy</Link>
-          </nav>
-        </div>
-      </header>
-      <main className="site-main">
-        <div className="container">{children}</div>
-      </main>
-      <footer className="site-footer">
-        <div className="container">
-          <span>© Northwind Trail Co. (demo)</span>
-          <Link href="/privacy">Privacy notice</Link>
-          <PrivacyChoicesButton />
-        </div>
+      <main className="plain-main">{children}</main>
+      {/* The consent banner links here, and visitors must be able to revisit their choice. */}
+      <footer className="plain-footer">
+        <Link href="/privacy">Privacy</Link>
+        <PrivacyChoicesButton />
       </footer>
     </AnalyticsProvider>
   );

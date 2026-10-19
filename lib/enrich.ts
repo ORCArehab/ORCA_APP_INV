@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { geolocation } from "@vercel/functions";
 import type { AppConfig } from "./config";
 import type { Db } from "./db";
 import { isNonPublicIp } from "./ip";
@@ -118,6 +119,28 @@ export function mockLookup(ip: string): Fields {
   };
 }
 
+function decode(v: string | undefined): string | null {
+  if (!v) return null;
+  try {
+    return str(decodeURIComponent(v));
+  } catch {
+    return str(v);
+  }
+}
+
+/**
+ * Location estimated by Vercel's edge from the client IP (x-vercel-ip-* headers). Free and
+ * keyless, but city/region/country only: no ISP or VPN/proxy indicators. Coordinates and
+ * postal codes are deliberately not stored. Only call this when running on Vercel.
+ */
+export function vercelGeoLookup(req: Request, now = new Date()): Enrichment {
+  const g = geolocation(req);
+  const code = g.country && /^[A-Z]{2}$/i.test(g.country) ? g.country.toUpperCase() : null;
+  const fields: Fields = { ...EMPTY, countryCode: code, country: countryName(code), region: decode(g.countryRegion), city: decode(g.city) };
+  const any = fields.countryCode || fields.city || fields.region;
+  return { ...fields, status: any ? "ok" : "error", source: "Vercel IP geolocation", at: now, error: any ? null : "no geolocation headers on request" };
+}
+
 export async function lookupIp(
   ip: string | null,
   config: Pick<AppConfig, "ipLookupProvider" | "ipLookupApiKey" | "ipLookupTimeoutMs">,
@@ -127,6 +150,7 @@ export async function lookupIp(
   const base = { at: now, error: null };
   const provider = config.ipLookupProvider;
   if (provider === "none") return { ...EMPTY, ...base, status: "disabled", source: null };
+  if (provider === "vercel") return { ...EMPTY, ...base, status: "error", source: "Vercel IP geolocation", error: "Vercel geolocation is read from the request in handleCollect" };
   if (!ip) return { ...EMPTY, ...base, status: "skipped-unknown", source: null };
   if (provider === "mock") return { ...mockLookup(ip), ...base, status: "mock", source: "mock (sample data, not a real lookup)" };
   if (isNonPublicIp(ip)) return { ...EMPTY, ...base, status: "skipped-private", source: null };
@@ -159,9 +183,10 @@ export async function enrichVisit(
   ip: string | null,
   config: AppConfig,
   fetchImpl?: FetchLike,
+  precomputed?: Enrichment,
 ): Promise<Enrichment> {
-  let result: Enrichment | null = null;
-  const cacheable = ip && config.ipLookupCacheHours > 0 && config.ipLookupProvider !== "mock" && config.ipLookupProvider !== "none";
+  let result: Enrichment | null = precomputed ?? null;
+  const cacheable = !precomputed && ip && config.ipLookupCacheHours > 0 && (config.ipLookupProvider === "ipinfo" || config.ipLookupProvider === "ip-api");
   if (cacheable) {
     const cached = await db.query<{ data: Enrichment; looked_up_at: Date }>(
       `SELECT data, looked_up_at FROM ip_lookup_cache
